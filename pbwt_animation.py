@@ -176,29 +176,26 @@ def create_figure1_frame(haplotypes, a_list, d_list, k, ax, original_indices=Non
             )
             ax.add_patch(rect)
 
-            # Draw allele
-            allele_color = color_1 if allele == 1 else color_0
-
-            # Only show alleles up to and including current position
+            # Draw allele - always visible, but faded for future positions
             if site <= k:
-                ax.text(
-                    x_pos + cell_width * 0.45,
-                    y_pos * cell_height + cell_height * 0.45,
-                    str(allele),
-                    ha='center', va='center',
-                    fontsize=12, fontweight='bold',
-                    color=allele_color
-                )
+                # Processed positions: bold colors
+                allele_color = color_1 if allele == 1 else color_0
+                fontweight = 'bold'
+                alpha = 1.0
             else:
-                # Future positions shown as gray question marks
-                ax.text(
-                    x_pos + cell_width * 0.45,
-                    y_pos * cell_height + cell_height * 0.45,
-                    '?',
-                    ha='center', va='center',
-                    fontsize=10,
-                    color='lightgray'
-                )
+                # Future positions: faded colors
+                allele_color = '#E8A0A0' if allele == 1 else '#A0C4E8'
+                fontweight = 'normal'
+                alpha = 0.6
+
+            ax.text(
+                x_pos + cell_width * 0.45,
+                y_pos * cell_height + cell_height * 0.45,
+                str(allele),
+                ha='center', va='center',
+                fontsize=12, fontweight=fontweight,
+                color=allele_color, alpha=alpha
+            )
 
         # Add row labels (original haplotype index)
         ax.text(
