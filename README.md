@@ -15,8 +15,8 @@ This project creates animated visualizations showing how the PBWT algorithm work
 The animation shows:
 - **Yellow cells**: Current position k being processed
 - **Green cells**: Matching prefix regions with the previous sequence in sorted order
-- **Blue 0 / Red 1**: Allele values
-- **Gray ?**: Future positions not yet revealed
+- **Bold blue 0 / red 1**: Processed allele values (positions ≤ k)
+- **Faded colors**: Future positions (visible but not yet processed)
 - **d values**: Divergence (position where match with previous sequence starts)
 
 ## How PBWT Works
