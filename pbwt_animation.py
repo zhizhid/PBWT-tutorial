@@ -259,9 +259,172 @@ def create_figure1_frame(haplotypes, a_list, d_list, k, ax, original_indices=Non
     ax.text(9.8, legend_y + 0.1, 'alleles', fontsize=8, va='center')
 
 
-def create_animation(haplotypes, output_file='pbwt_animation.gif', fps=1):
+def create_transition_frame(haplotypes, a_list, d_list, k, ax, progress):
+    """
+    Create a transition frame showing haplotypes moving from sort order at k to k+1.
+
+    Args:
+        progress: float from 0.0 to 1.0 indicating transition progress
+    """
+    ax.clear()
+
+    M, N = haplotypes.shape
+    a_k = a_list[k]      # Sort order at position k
+    a_k1 = a_list[k + 1]  # Sort order at position k+1
+    d_k = d_list[k]
+
+    # Colors
+    color_0 = '#4A90D9'
+    color_1 = '#E74C3C'
+    bg_color = '#F5F5F5'
+    highlight_color = '#FFE066'
+    match_color = '#90EE90'
+    row_bg_color = '#E8E8E8'  # Gray background for moving rows
+
+    cell_width = 1.0
+    cell_height = 0.8
+
+    # Build mapping: for each haplotype, find its row in old and new order
+    old_row = {hap_idx: row for row, hap_idx in enumerate(a_k)}
+    new_row = {hap_idx: row for row, hap_idx in enumerate(a_k1)}
+
+    # Draw each haplotype with interpolated position
+    for hap_idx in range(M):
+        old_r = old_row[hap_idx]
+        new_r = new_row[hap_idx]
+
+        # Interpolate row position
+        interp_row = old_r + (new_r - old_r) * progress
+        y_pos = M - interp_row - 1
+
+        # Calculate horizontal offset for curved motion
+        # Use sine curve: max offset at middle of transition (progress=0.5)
+        row_delta = new_r - old_r
+        curve_amount = np.sin(progress * np.pi) * 0.3  # Max 0.3 cell widths
+        if row_delta > 0:  # Moving down (to higher row number) -> curve right
+            x_offset = curve_amount
+        elif row_delta < 0:  # Moving up -> curve left
+            x_offset = -curve_amount
+        else:
+            x_offset = 0
+
+        hap = haplotypes[hap_idx]
+
+        # Get match info from old order for coloring
+        if old_r > 0:
+            match_start = d_k[old_r]
+        else:
+            match_start = k
+
+        # Draw row background (gray band) if this haplotype is moving
+        if row_delta != 0:
+            row_bg = patches.Rectangle(
+                (-0.8 + x_offset, y_pos * cell_height - 0.02),
+                N * cell_width + 0.9,
+                cell_height * 0.94,
+                facecolor=row_bg_color,
+                edgecolor='none',
+                alpha=0.7,
+                zorder=0
+            )
+            ax.add_patch(row_bg)
+
+        # Draw each site
+        for site in range(N):
+            x_pos = site * cell_width + x_offset
+            allele = hap[site]
+
+            # Background color
+            if site == k:
+                bg = highlight_color
+            elif site < k and site >= match_start and old_r > 0:
+                bg = match_color
+            else:
+                bg = bg_color
+
+            rect = patches.Rectangle(
+                (x_pos, y_pos * cell_height),
+                cell_width * 0.95,
+                cell_height * 0.9,
+                facecolor=bg,
+                edgecolor='gray',
+                linewidth=0.5,
+                zorder=1
+            )
+            ax.add_patch(rect)
+
+            # Draw allele
+            if site <= k:
+                allele_color = color_1 if allele == 1 else color_0
+                fontweight = 'bold'
+                alpha = 1.0
+            else:
+                allele_color = '#E8A0A0' if allele == 1 else '#A0C4E8'
+                fontweight = 'normal'
+                alpha = 0.6
+
+            ax.text(
+                x_pos + cell_width * 0.45,
+                y_pos * cell_height + cell_height * 0.45,
+                str(allele),
+                ha='center', va='center',
+                fontsize=12, fontweight=fontweight,
+                color=allele_color, alpha=alpha,
+                zorder=2
+            )
+
+        # Row label (moves with the row)
+        ax.text(
+            -0.5 + x_offset, y_pos * cell_height + cell_height * 0.45,
+            f'h{hap_idx}',
+            ha='right', va='center',
+            fontsize=10, fontweight='bold',
+            zorder=2
+        )
+
+    # Position labels
+    for site in range(N):
+        color = 'red' if site == k else 'black'
+        weight = 'bold' if site == k else 'normal'
+        ax.text(
+            site * cell_width + cell_width * 0.45,
+            -0.4,
+            str(site),
+            ha='center', va='center',
+            fontsize=9, color=color, fontweight=weight
+        )
+
+    ax.set_xlim(-1, N * cell_width + 1.5)
+    ax.set_ylim(-0.8, M * cell_height + 0.3)
+    ax.set_aspect('equal')
+    ax.axis('off')
+
+    ax.set_title(
+        f'PBWT Visualization: Sorting by position k = {k}\n'
+        f'Grouping 0s (top) and 1s (bottom)',
+        fontsize=12, fontweight='bold', pad=10
+    )
+
+    # Legend
+    legend_y = M * cell_height + 0.1
+    ax.add_patch(patches.Rectangle((0, legend_y), 0.3, 0.2, facecolor=highlight_color, edgecolor='gray'))
+    ax.text(0.5, legend_y + 0.1, 'Current position', fontsize=8, va='center')
+
+    ax.add_patch(patches.Rectangle((4, legend_y), 0.3, 0.2, facecolor=match_color, edgecolor='gray'))
+    ax.text(4.5, legend_y + 0.1, 'Match with prev', fontsize=8, va='center')
+
+    ax.text(8.5, legend_y + 0.1, '0', fontsize=10, color=color_0, fontweight='bold', va='center')
+    ax.text(9, legend_y + 0.1, '/', fontsize=10, va='center')
+    ax.text(9.3, legend_y + 0.1, '1', fontsize=10, color=color_1, fontweight='bold', va='center')
+    ax.text(9.8, legend_y + 0.1, 'alleles', fontsize=8, va='center')
+
+
+def create_animation(haplotypes, output_file='pbwt_animation.gif', fps=1, transition_frames=5):
     """
     Create an animated GIF showing the PBWT algorithm frame by frame.
+
+    Args:
+        transition_frames: Number of intermediate frames for sorting transition
     """
     M, N = haplotypes.shape
 
@@ -272,22 +435,43 @@ def create_animation(haplotypes, output_file='pbwt_animation.gif', fps=1):
     fig, ax = plt.subplots(figsize=(14, 8))
     fig.patch.set_facecolor('white')
 
-    def animate(frame):
-        k = frame
-        create_figure1_frame(haplotypes, a_list, d_list, k, ax)
+    # Build frame list: for each position k, show state then transition
+    # Frame types: ('state', k) or ('transition', k, progress)
+    frame_list = []
+    for k in range(N):
+        frame_list.append(('state', k))
+        if k < N - 1:  # Add transition frames except after last position
+            # Only add transition if sort order actually changes
+            if not np.array_equal(a_list[k], a_list[k + 1]):
+                for t in range(1, transition_frames + 1):
+                    progress = t / transition_frames
+                    frame_list.append(('transition', k, progress))
+
+    def animate(frame_idx):
+        frame_info = frame_list[frame_idx]
+        if frame_info[0] == 'state':
+            k = frame_info[1]
+            create_figure1_frame(haplotypes, a_list, d_list, k, ax)
+        else:  # transition
+            k = frame_info[1]
+            progress = frame_info[2]
+            create_transition_frame(haplotypes, a_list, d_list, k, ax, progress)
         return []
 
     # Create animation
+    total_frames = len(frame_list)
+    n_transitions = total_frames - N
+    print(f"Creating animation with {total_frames} frames ({N} states + {n_transitions} transition frames)...")
+
     anim = FuncAnimation(
         fig, animate,
-        frames=N,
-        interval=1000 // fps,
+        frames=total_frames,
+        interval=1000 // (fps * 2),  # Faster for smooth transitions
         blit=False
     )
 
     # Save as GIF
-    print(f"Creating animation with {N} frames...")
-    writer = PillowWriter(fps=fps)
+    writer = PillowWriter(fps=fps * 2)
     anim.save(output_file, writer=writer, dpi=100)
     print(f"Animation saved to {output_file}")
 
